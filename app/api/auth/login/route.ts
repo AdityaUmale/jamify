@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     redirectUri: process.env.REDIRECT_URI
   });
 
-  const scope = 'user-read-private user-read-email';
+  const scope = process.env.SPOTIFY_SCOPE;
 
   return NextResponse.redirect(
     'https://accounts.spotify.com/authorize?' +

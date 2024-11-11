@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     cookieStore.set('access_token', data.access_token);
     cookieStore.set('refresh_token', data.refresh_token);
     
-    return NextResponse.redirect(new URL('/?login=success', request.url));
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   } catch (error) {
     console.error('Server Error:', error);
     return NextResponse.redirect(new URL('/?error=server_error', request.url));
