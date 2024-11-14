@@ -68,6 +68,7 @@ interface PlaylistsResponse {
   previous: string | null;
 }
 
+
 export default function Playlists() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
@@ -75,6 +76,96 @@ export default function Playlists() {
   const [loading, setLoading] = useState(true);
   const [loadingTracks, setLoadingTracks] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [player, setPlayer] = useState<Spotify.Player | null>(null);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTrackUri, setCurrentTrackUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        console.log('Spotify SDK Ready');
+        const player = new window.Spotify.Player({
+          name: 'Jamify Web Player',
+          getOAuthToken: (cb: (token: string) => void) => {
+            const token = document.cookie
+              .split('; ')
+              .find(row => row.startsWith('access_token='))
+              ?.split('=')[1];
+              
+            if (token) {
+              console.log('Token found');
+              cb(token);
+            } else {
+              console.error('No access token found');
+            }
+          },
+          volume: 0.5
+        });
+  
+        // Add your player event listeners here...
+  
+        player.connect().then(success => {
+          if (success) {
+            console.log('Successfully connected to Spotify!');
+          }
+        });
+  
+        setPlayer(player);
+      };
+    }
+  
+    return () => {
+      if (player) {
+        player.disconnect();
+      }
+      if (typeof window !== 'undefined') {
+        window.onSpotifyWebPlaybackSDKReady = () => {};
+      }
+    };
+  }, []);
+
+  const playTrack = async (trackUri: string) => {
+  if (!deviceId) return;
+
+  try {
+    if (currentTrackUri === trackUri && isPlaying) {
+      // Pause the track
+      const response = await fetch('/api/spotify/play', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'pause',
+          device_id: deviceId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to pause playback');
+      }
+    } else {
+      // Play the track
+      const response = await fetch('/api/spotify/play', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          device_id: deviceId,
+          uris: [trackUri]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to start playback');
+      }
+    }
+  } catch (error) {
+    console.error('Error controlling playback:', error);
+  }
+};
 
   const fetchAllPlaylists = async () => {
     try {
@@ -209,6 +300,15 @@ export default function Playlists() {
                     key={item.track.id || `local-${index}`}
                     className="flex items-center p-2 hover:bg-gray-100 rounded"
                   >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        playTrack(item.track!.uri);
+                      }}
+                      className="mr-4 p-2 rounded-full hover:bg-gray-200"
+                    >
+                      {currentTrackUri === item.track.uri && isPlaying ? '⏸️' : '▶️'}
+                    </button>
                     <div className="w-12 h-12">
                       {item.track.album.images[0] && (
                         <img 
